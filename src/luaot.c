@@ -164,9 +164,11 @@ static void doargs(int argc, char **argv)
 static char *get_module_name_from_filename(const char *);
 static void check_module_name(const char *);
 static void replace_dots(char *);
+static void create_functions(Proto *);
+static void print_internal_searcher();
 static void print_internal_searcher_windows();
 static void print_internal_searcher_posix();
-static void print_functions();
+static void print_functions(Proto *);
 static void print_source_code();
 
 int main(int argc, char **argv)
@@ -215,10 +217,9 @@ int main(int argc, char **argv)
     #endif
     if (executable) {
       printnl();
-      if (install_internal_searcher == INSTALL_INTERNAL_SEARCHER_POSIX)
-        print_internal_searcher_posix();
-      else if (install_internal_searcher == INSTALL_INTERNAL_SEARCHER_WINDOWS)
-        print_internal_searcher_windows();
+      if (install_internal_searcher) {
+        print_internal_searcher();
+      }
       printnl();
       println("int main(int argc, char *argv[]) {");
       println(" lua_State *L = luaL_newstate();");
@@ -804,18 +805,41 @@ void create_functions(Proto *p)
     }
 }
 
+static void print_internal_searcher()
+{
+    printnl();
+    println("static const struct LuaOTModule { const char *module_name, *symbol_name; } INTERNAL_SEARCHER_MODULES[] = {");
+    println("  LUAOT_INTERNAL_SEARCHER_MODULES,");
+    println("  {NULL, NULL}");
+    println("};");
+
+    switch (install_internal_searcher) {
+        case INSTALL_INTERNAL_SEARCHER_NONE:
+            break;
+        case INSTALL_INTERNAL_SEARCHER_POSIX:
+            print_internal_searcher_posix();
+            break;
+        case INSTALL_INTERNAL_SEARCHER_WINDOWS:
+            print_internal_searcher_windows();
+            break;
+    }
+}
+
+#define _STR(x) #x
+#define STR(...) _STR(__VA_ARGS__)
+
 static void
 print_internal_searcher_windows()
 {
+    println("#define WIN32_LEAN_AND_MEAN");
     println("#include <windows.h>");
     println("static int internal_searcher(lua_State *lua)");
     println("{");
-    println("  const char *name = lua_tostring(lua, 1);");
-    println("  char symname[512];");
-    println("  snprintf(symname, sizeof(symname), \"luaopen_%%s\", name);");
-    println("  for (int i = 0; symname[i] != '\\0'; i++) {");
-    println("    if (symname[i] == '.') {");
-    println("      symname[i] = '_';");
+    println("  const char *symname = lua_tostring(lua, 1);");
+    println("  for (struct LuaOTModule *m = &INTERNAL_SEARCHER_MODULES; m->module_name; m++) {");
+    println("    if (strcmp(m->module_name, symname) == 0) {");
+    println("      symname = m->symbol_name;");
+    println("      break;");
     println("    }");
     println("  }");
     printnl();
@@ -850,12 +874,11 @@ void print_internal_searcher_posix()
     println("    return 1;");
     println("  }");
     printnl();
-    println("  const char *name = lua_tostring(lua, 1);");
-    println("  char symname[512];");
-    println("  snprintf(symname, sizeof(symname), \"luaopen_%%s\", name);");
-    println("  for (int i = 0; symname[i] != '\\0'; i++) {");
-    println("    if (symname[i] == '.') {");
-    println("      symname[i] = '_';");
+    println("  const char *symname = lua_tostring(lua, 1);");
+    println("  for (struct LuaOTModule *m = &INTERNAL_SEARCHER_MODULES; m->module_name; m++) {");
+    println("    if (strcmp(m->module_name, symname) == 0) {");
+    println("      symname = m->symbol_name;");
+    println("      break;");
     println("    }");
     println("  }");
     printnl();
@@ -864,9 +887,9 @@ void print_internal_searcher_posix()
     println("    lua_pushstring(lua, dlerror());");
     println("    return 1;");
     println("  }");
-    printnl();
+    // printnl();
     println("  lua_pushcfunction(lua, sym);");
-    printnl();
+    // printnl();
     println("  return 1;");
     println("}");
 }
