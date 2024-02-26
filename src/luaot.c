@@ -836,7 +836,7 @@ print_internal_searcher_windows()
     println("static int internal_searcher(lua_State *lua)");
     println("{");
     println("  const char *symname = lua_tostring(lua, 1);");
-    println("  for (struct LuaOTModule *m = &INTERNAL_SEARCHER_MODULES; m->module_name; m++) {");
+    println("  for (const struct LuaOTModule *m = &INTERNAL_SEARCHER_MODULES; m->module_name; m++) {");
     println("    if (strcmp(m->module_name, symname) == 0) {");
     println("      symname = m->symbol_name;");
     println("      break;");
@@ -875,7 +875,7 @@ void print_internal_searcher_posix()
     println("  }");
     printnl();
     println("  const char *symname = lua_tostring(lua, 1);");
-    println("  for (struct LuaOTModule *m = &INTERNAL_SEARCHER_MODULES; m->module_name; m++) {");
+    println("  for (const struct LuaOTModule *m = &INTERNAL_SEARCHER_MODULES; m->module_name; m++) {");
     println("    if (strcmp(m->module_name, symname) == 0) {");
     println("      symname = m->symbol_name;");
     println("      break;");
