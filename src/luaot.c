@@ -30,12 +30,14 @@
 // This part should not depend much on the Lua version
 //
 
+#define MAGIC_FUNCTION_FMT "%s_magic_function_%d"
+
 static const char *program_name    = "luaot";
 static char *input_filename  = NULL;
 static char *output_filename = NULL;
 static char *module_name     = NULL;
 
-static FILE * output_file = NULL;
+static FILE *output_file = NULL, *original_file = NULL;
 static int nfunctions = 0;
 static TString **tmname;
 
@@ -194,7 +196,7 @@ int main(int argc, char **argv)
 
     // Generate the file
 
-    output_file = fopen(output_filename, "w");
+    original_file = output_file = fopen(output_filename, "w");
     if (output_file == NULL) { fatal_error(strerror(errno)); }
 
     #if defined(LUAOT_USE_GOTOS)
@@ -787,6 +789,9 @@ void luaot_PrintOpcodeComment(Proto *f, int pc)
     print("\n");
 }
 
+#if !defined(LUAOT_USE_GOTOS) || !defined(LUAOT_USE_SWITCHES)
+#   define LUAOT_USE_GOTOS
+#endif
 #if defined(LUAOT_USE_GOTOS)
 #include "luaot_gotos.c"
 #elif defined(LUAOT_USE_SWITCHES)
@@ -798,18 +803,43 @@ void luaot_PrintOpcodeComment(Proto *f, int pc)
 static
 void create_functions(Proto *p)
 {
+    int func_id = nfunctions++;
+    char fbuf[512] = {0};
+    int i = snprintf(fbuf, sizeof(fbuf) - 2, MAGIC_FUNCTION_FMT, module_name, func_id);
+    fbuf[i] = '.';
+    fbuf[i+1] = 'c';
+    // fprintf(stderr, "Creating function %s (id: %d, i: %d)\n", fbuf, func_id, i);
+    FILE    *fn_file = fopen(fbuf, "w+b"),
+            *old_file = output_file;
+    fbuf[i] = '\0';
+    output_file = original_file;
+
+    println("extern CallInfo *%s(lua_State *L, CallInfo *ci);", fbuf);
+
+    output_file = fn_file;
+
+    #if defined(LUAOT_USE_GOTOS)
+    println("#include \"luaot_header.c\"");
+    #elif defined(LUAOT_USE_SWITCHES)
+    println("#include \"trampoline_header.c\"");
+    #endif
+
     // luaot_footer.c should use the same traversal order as this.
-    create_function(p);
+    create_function(p, fbuf);
     for (int i = 0; i < p->sizep; i++) {
         create_functions(p->p[i]);
     }
+    fclose(fn_file);
+    output_file = old_file;
 }
 
 static void print_internal_searcher()
 {
     printnl();
     println("static const struct LuaOTModule { const char *module_name, *symbol_name; } INTERNAL_SEARCHER_MODULES[] = {");
+    println("#if defined(LUAOT_INTERNAL_SEARCHER_MODULES)");
     println("  LUAOT_INTERNAL_SEARCHER_MODULES,");
+    println("#endif");
     println("  {NULL, NULL}");
     println("};");
 
@@ -836,7 +866,7 @@ print_internal_searcher_windows()
     println("static int internal_searcher(lua_State *lua)");
     println("{");
     println("  const char *symname = lua_tostring(lua, 1);");
-    println("  for (const struct LuaOTModule *m = &INTERNAL_SEARCHER_MODULES; m->module_name; m++) {");
+    println("  for (const struct LuaOTModule *m = INTERNAL_SEARCHER_MODULES; m->module_name; m++) {");
     println("    if (strcmp(m->module_name, symname) == 0) {");
     println("      symname = m->symbol_name;");
     println("      break;");
@@ -875,7 +905,7 @@ void print_internal_searcher_posix()
     println("  }");
     printnl();
     println("  const char *symname = lua_tostring(lua, 1);");
-    println("  for (const struct LuaOTModule *m = &INTERNAL_SEARCHER_MODULES; m->module_name; m++) {");
+    println("  for (const struct LuaOTModule *m = INTERNAL_SEARCHER_MODULES; m->module_name; m++) {");
     println("    if (strcmp(m->module_name, symname) == 0) {");
     println("      symname = m->symbol_name;");
     println("      break;");
@@ -901,7 +931,7 @@ void print_functions(Proto *p)
 
     println("static AotCompiledFunction LUAOT_FUNCTIONS[] = {");
     for (int i = 0; i < nfunctions; i++) {
-        println("  magic_implementation_%02d,", i);
+        println("    "MAGIC_FUNCTION_FMT",", module_name, i);
     }
     println("  NULL");
     println("};");

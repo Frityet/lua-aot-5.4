@@ -11,3 +11,5 @@ experiments/*.byte
 *.o
 *.so
 .Rproj.user
+
+teal-test/

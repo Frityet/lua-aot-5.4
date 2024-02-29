@@ -20,9 +20,9 @@ void println_goto_ret()
 }
 
 static
-void create_function(Proto *f)
+void create_function(Proto *f, const char *funcname)
 {
-    int func_id = nfunctions++;
+    // int func_id = nfunctions++;
 
     println("// source = %s", getstr(f->source));
     if (f->linedefined == 0) {
@@ -31,8 +31,10 @@ void create_function(Proto *f)
         println("// lines: %d - %d", f->linedefined, f->lastlinedefined);
     }
 
-    println("static");
-    println("CallInfo *magic_implementation_%02d(lua_State *L, CallInfo *ci)", func_id);
+    // static char name_buffer[512];
+    // snprintf(name_buffer, 512, "magic_implementation_%02d", func_id);
+    // println("static");
+    println("CallInfo *%s(lua_State *L, CallInfo *ci)", funcname);
     println("{");
     println("  LClosure *cl;");
     println("  TValue *k;");
