@@ -7,6 +7,8 @@ experiments/*.c
 experiments/*.so
 experiments/*.byte
 
+multifile-test/*.c
+
 *.a
 *.o
 *.so

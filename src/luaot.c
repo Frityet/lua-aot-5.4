@@ -808,9 +808,10 @@ void create_functions(Proto *p)
     int i = snprintf(fbuf, sizeof(fbuf) - 2, MAGIC_FUNCTION_FMT, module_name, func_id);
     fbuf[i] = '.';
     fbuf[i+1] = 'c';
-    // fprintf(stderr, "Creating function %s (id: %d, i: %d)\n", fbuf, func_id, i);
     FILE    *fn_file = fopen(fbuf, "w+b"),
             *old_file = output_file;
+    if (fn_file == NULL) { fatal_error(strerror(errno)); }
+
     fbuf[i] = '\0';
     output_file = original_file;
 
