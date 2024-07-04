@@ -20,11 +20,12 @@ int LUAOT_LUAOPEN_NAME(lua_State *L) {
         /* No errors */
         break;
       case LUA_ERRSYNTAX:
-        fprintf(stderr, "syntax error in bundled source code.\n");
+        const char *errmsg = lua_tostring(L, -1);
+        fprintf(stderr, "syntax error in bundled source code (""AOT Compiled module \""LUAOT_MODULE_NAME"\"""): %s.\n", errmsg);
         exit(1);
         break;
       case LUA_ERRMEM:
-        fprintf(stderr, "memory allocation (out-of-memory) error in bundled source code.\n");
+        fprintf(stderr, "memory allocation (out-of-memory) error in bundled source code (""AOT Compiled module \""LUAOT_MODULE_NAME"\""").\n");
         exit(1);
         break;
       default:
