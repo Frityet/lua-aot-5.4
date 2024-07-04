@@ -13,6 +13,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <libgen.h>
+
 #include "lua.h"
 #include "lauxlib.h"
 
@@ -140,6 +142,7 @@ static void doargs(int argc, char **argv)
                 } else {
                     fatal_error("invalid argument for -i (expected 'posix' or 'windows')");
                 }
+
             } else {
                 fprintf(stderr, "unknown option %s\n", arg);
                 exit(1);
@@ -803,16 +806,16 @@ void luaot_PrintOpcodeComment(Proto *f, int pc)
 static
 void create_functions(Proto *p)
 {
+    //get the dirname of the output file
+    char dirname_path[1024] = {0};
+    dirname_r(output_filename, dirname_path);
+
     int func_id = nfunctions++;
-    char fbuf[512] = {0};
-    int i = snprintf(fbuf, sizeof(fbuf) - 2, MAGIC_FUNCTION_FMT, module_name, func_id);
-    fbuf[i] = '.';
-    fbuf[i+1] = 'c';
+    char fbuf[1024] = {0};
+    snprintf(fbuf, sizeof(fbuf) - 2, "%s/"MAGIC_FUNCTION_FMT".c", dirname_path, module_name, func_id);
     FILE    *fn_file = fopen(fbuf, "w+b"),
             *old_file = output_file;
     if (fn_file == NULL) { fatal_error(strerror(errno)); }
-
-    fbuf[i] = '\0';
     output_file = original_file;
 
     println("extern CallInfo *%s(lua_State *L, CallInfo *ci);", fbuf);
