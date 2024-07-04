@@ -14,14 +14,14 @@ void bind_magic(Proto *f)
 }
 
 int LUAOT_LUAOPEN_NAME(lua_State *L) {
-    int ok = luaL_loadbuffer(L, LUAOT_MODULE_SOURCE_CODE, sizeof(LUAOT_MODULE_SOURCE_CODE)-1, "AOT Compiled module \""LUAOT_MODULE_NAME"\"");
+    int ok = luaL_loadbuffer(L, LUAOT_MODULE_SOURCE_CODE, sizeof(LUAOT_MODULE_SOURCE_CODE)-1, "AOT Compiled module `"LUAOT_MODULE_NAME"`");
     switch (ok) {
       case LUA_OK:
         /* No errors */
         break;
       case LUA_ERRSYNTAX: {
         const char *errmsg = lua_tostring(L, -1);
-        fprintf(stderr, "syntax error in bundled source code (""AOT Compiled module \""LUAOT_MODULE_NAME"\"""): %s.\n", errmsg);
+        fprintf(stderr, "syntax error in bundled source code: %s.\n", errmsg);
         exit(1);
         break;
       }
