@@ -892,8 +892,14 @@ print_internal_searcher_windows()
     printnl();
     println("  lua_CFunction sym = (lua_CFunction)GetProcAddress(self_handle, symname);");
     println("  if (!sym) {");
-    println("    lua_pushstring(lua, \"could not get symbol address\");");
-    println("    return 1;");
+    //try to check luaopen_(SYMNAME)
+    println("    char lopen_symname[1024];");
+    println("    snprintf(lopen_symname, sizeof(lopen_symname), \"luaopen_%%s\", symname);");
+    println("    sym = (lua_CFunction)GetProcAddress(self_handle, lopen_symname);");
+    println("    if (!sym) {");
+    println("      lua_pushstring(lua, \"could not get symbol address\");");
+    println("      return 1;");
+    println("    }");
     println("  }");
     printnl();
     println("  lua_pushcfunction(lua, sym);");
@@ -925,12 +931,18 @@ void print_internal_searcher_posix()
     printnl();
     println("  lua_CFunction sym = (lua_CFunction)dlsym(self_handle, symname);");
     println("  if (!sym) {");
-    println("    lua_pushstring(lua, dlerror());");
-    println("    return 1;");
+    //check luaopen_(SYMNAME)
+    println("    char lopen_symname[1024];");
+    println("    snprintf(lopen_symname, sizeof(lopen_symname), \"luaopen_%%s\", symname);");
+    println("    sym = (lua_CFunction)dlsym(self_handle, lopen_symname);");
+    println("    if (!sym) {");
+    println("      lua_pushstring(lua, dlerror());");
+    println("      return 1;");
+    println("    }");
     println("  }");
-    // printnl();
+    printnl();
     println("  lua_pushcfunction(lua, sym);");
-    // printnl();
+    printnl();
     println("  return 1;");
     println("}");
 }
