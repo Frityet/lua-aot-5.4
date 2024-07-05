@@ -44,6 +44,8 @@ static TString **tmname;
 
 int executable = 0;
 int use_winmain = 0;
+int use_bytecode = 1;
+int strip_debug = 1;
 
 enum {
     INSTALL_INTERNAL_SEARCHER_NONE = 0,
@@ -63,6 +65,8 @@ void usage()
           "  -s                 use  switches instead of gotos in generated code\n"
           "  -e                 add a main symbol for executables\n"
           "  -i {posix,windows} install internal searcher\n"
+          "  -g                 keep debug symbols\n"
+          "  -t                 embed the raw lua source, not bytecode\n"
           "  -w                 add a WinMain symbol for consoleless executables on windows\n",
           program_name);
 }
@@ -127,6 +131,10 @@ static void doargs(int argc, char **argv)
             } else if (0 == strcmp(arg, "-w")) {
                 executable = 1;
                 use_winmain = 1;
+            } else if (0 == strcmp(arg, "-g")) {
+                strip_debug = 0;
+            } else if (0 == strcmp(arg, "-t")) {
+                use_bytecode = 0;
             } else if (0 == strcmp(arg, "-o")) {
                 i++;
                 if (i >= argc) { fatal_error("missing argument for -o"); }
@@ -173,7 +181,7 @@ static void print_internal_searcher();
 static void print_internal_searcher_windows();
 static void print_internal_searcher_posix();
 static void print_functions(Proto *);
-static void print_source_code();
+static void print_source_code(lua_State *L);
 
 int main(int argc, char **argv)
 {
@@ -209,7 +217,7 @@ int main(int argc, char **argv)
     printnl();
     print_functions(proto);
     printnl();
-    print_source_code();
+    print_source_code(L);
     printnl();
     println("#define LUAOT_MODULE_NAME \"%s\"", module_name);
     println("#define LUAOT_LUAOPEN_NAME luaopen_%s", module_name);
@@ -948,20 +956,21 @@ void print_internal_searcher_posix()
 }
 
 static
-void print_functions(Proto *p)
+int bytecode_writer(lua_State *L, const void *p, size_t sz, void *ud)
 {
-    create_functions(p);
-
-    println("static AotCompiledFunction LUAOT_FUNCTIONS[] = {");
-    for (int i = 0; i < nfunctions; i++) {
-        println("    "MAGIC_FUNCTION_FMT",", module_name, i);
+    (void)L;
+    luaL_Buffer *b = (luaL_Buffer *)ud;
+    //add the bytes to the buffer as comma seperated hex
+    for (size_t i = 0; i < sz; i++) {
+        char tmpbuf[10];
+        snprintf(tmpbuf, sizeof(tmpbuf), "0x%02x,", ((const unsigned char *)p)[i]);
+        luaL_addstring(b, tmpbuf);
     }
-    println("  NULL");
-    println("};");
+    return 0;
 }
 
 static
-void print_source_code()
+void print_source_code_bytecode(lua_State *L)
 {
     // Since the code we are generating is lifted from lvm.c, we need it to use
     // Lua functions instead of C functions. And to create the Lua functions,
@@ -972,6 +981,32 @@ void print_source_code()
     // string literal can be, so instead of using a string literal, we use a
     // plain char array instead.
 
+    luaL_Buffer buf;
+    luaL_buffinit(L, &buf);
+
+    int res = luaL_loadfile(L, input_filename);
+    if (res != LUA_OK) {
+        fatal_error(lua_tostring(L,-1));
+    }
+
+    res = lua_dump(L, bytecode_writer, &buf, strip_debug);
+    if (res != LUA_OK) {
+        fatal_error(lua_tostring(L,-1));
+    }
+
+    luaL_pushresult(&buf);
+
+    size_t len;
+    const char *source_code = lua_tolstring(L, -1, &len);
+
+    println("static const char LUAOT_MODULE_SOURCE_CODE[] = {");
+    println(source_code);
+    println("};");
+}
+
+static
+void print_source_code_source(lua_State *L)
+{
     FILE *infile = fopen(input_filename, "r");
     if (!infile) { fatal_error("could not open input file a second time"); }
 
@@ -1001,4 +1036,13 @@ void print_source_code()
     println("};");
 
     fclose(infile);
+}
+
+static
+void print_source_code(lua_State *L)
+{
+    if (use_bytecode)
+        print_source_code_bytecode(L);
+    else
+        print_source_code_source(L);
 }
