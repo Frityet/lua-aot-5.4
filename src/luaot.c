@@ -1014,6 +1014,7 @@ void print_source_code_bytecode(lua_State *L)
 
     println("static const char LUAOT_MODULE_SOURCE_CODE[] = {");
     println(source_code);
+    println("0x0");
     println("};");
 }
 
