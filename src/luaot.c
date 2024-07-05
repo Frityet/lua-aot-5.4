@@ -956,6 +956,19 @@ void print_internal_searcher_posix()
 }
 
 static
+void print_functions(Proto *p)
+{
+    create_functions(p);
+
+    println("static AotCompiledFunction LUAOT_FUNCTIONS[] = {");
+    for (int i = 0; i < nfunctions; i++) {
+        println("    "MAGIC_FUNCTION_FMT",", module_name, i);
+    }
+    println("  NULL");
+    println("};");
+}
+
+static
 int bytecode_writer(lua_State *L, const void *p, size_t sz, void *ud)
 {
     (void)L;
