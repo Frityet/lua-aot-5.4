@@ -814,8 +814,9 @@ static
 void create_functions(Proto *p)
 {
     //get the basename of the output file
-    char dirname_path[1024] = {0};
-    dirname_r(output_filename, dirname_path);
+    char dirname_path_buf[1024] = {0};
+    memcpy(dirname_path_buf, output_filename, strlen(output_filename) - 2);
+    char *dirname_path = dirname(dirname_path_buf);
 
 
     int func_id = nfunctions++;
